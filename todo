@@ -1,0 +1,76 @@
+#!/usr/bin/env ruby
+
+require 'colorize'
+require 'rest-client'
+require 'json'
+require 'yaml'
+require 'pry'
+require "thor"
+require 'awesome_print'
+
+class Todo < Thor
+  desc "hello NAME", "say hello to NAME"
+  option :from
+  def hello(name)
+    load_config
+    puts "Hello #{name}"
+    puts "from " + options[:from] if options[:from]
+  end
+
+  desc "list_users", "List all username and passwords on system"
+  def list_users
+    load_config
+    path = "/api/users"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    r = JSON.parse(attempt_action(:get,request_text))
+    puts r["users"].each {|u| puts u}
+  end
+
+  desc "delete_user", "Delete a user by its ID"
+  option :id, :type => :numeric, :required => true
+  def delete_user
+    load_config
+    path = "/api/users"
+    request_text = "http://#{@auth_string}#{@url}#{path}/#{options[:id]}"
+    response_text = attempt_action(:delete, request_text)
+    puts response_text
+  end
+
+  no_commands do
+    def attempt_action(action_as_symbol, resource)
+      begin
+        return RestClient.send(action_as_symbol, resource)
+      rescue Exception => e
+        puts "\t#{action_as_symbol} failed on #{resource}".colorize(:red)
+        puts "\t#{e}".colorize(:red)
+        abort ("\tTry again".colorize(:red))
+      end
+    end
+    def load_config
+      if File.exists?("settings.yml")
+        @settings = YAML::load_file "settings.yml"
+        begin
+          user = @settings[:username]
+          password = @settings[:password]
+          @auth_string = "#{user}:#{password}@"
+          @url = @settings[:url]
+          path = "/api/users"
+          request_text = "http://#{@auth_string}#{@url}#{path}"
+          RestClient.get(request_text)
+        rescue Exception => e
+          puts "\tConfig read failure".colorize(color: :red, background: :yellow)
+          message = e.inspect.to_s.colorize(:red)
+          puts "\t#{message}".colorize(:red)
+          puts "\trequest_text = #{request_text}".colorize(:red)  if request_text
+          abort ("\tcheck config file and try again".colorize(:red))
+        end
+      else
+        default_settings = {username: "username_here", password: "password_here", url: "url_here"}
+        File.open("settings.yml", "w") {|f| f.write(default_settings.to_yaml)}
+        puts "please edit config file before running again"
+      end
+    end
+  end
+end
+
+Todo.start(ARGV)
