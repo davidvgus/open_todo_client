@@ -11,19 +11,27 @@ require 'awesome_print'
 class Todo < Thor
   desc "hello NAME", "say hello to NAME"
   option :from
-  def hello(name)
-    load_config
-    puts "Hello #{name}"
-    puts "from " + options[:from] if options[:from]
-  end
 
-  desc "list_users", "List all username and passwords on system"
-  def list_users
+  desc "users", "List all username and passwords on system"
+  def users
     load_config
     path = "/api/users"
     request_text = "http://#{@auth_string}#{@url}#{path}"
-    r = JSON.parse(attempt_action(:get,request_text))
-    puts r["users"].each {|u| puts u}
+    response_text = JSON.parse(attempt_action(:get,request_text))
+    puts response_text["users"].each {|u| puts u}
+  end
+
+  desc "add_user", "Adds a user"
+  option :username, :type => :string, :required => true
+  option :password, :type => :string, :required => true
+  def add_user
+    load_config
+    data = {"user" => {"username" => options[:username], "password" => options[:password]}}.to_json
+    header_options = {:content_type => :json, :accept => :json}
+    path = "/api/users"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = attempt_action(:post, request_text, data, header_options)
+    puts response_text
   end
 
   desc "delete_user", "Delete a user by its ID"
@@ -36,10 +44,19 @@ class Todo < Thor
     puts response_text
   end
 
+  desc "all_lists", "Displays all viewable lists lists"
+  def all_lists
+    load_config
+    path = "/api/lists"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = JSON.parse(attempt_action(:get,request_text))
+    puts response_text["lists"].each {|u| puts u}
+  end
+
   no_commands do
-    def attempt_action(action_as_symbol, resource)
+    def attempt_action(action_as_symbol, *resource)
       begin
-        return RestClient.send(action_as_symbol, resource)
+        return RestClient.send(action_as_symbol, *resource)
       rescue Exception => e
         puts "\t#{action_as_symbol} failed on #{resource}".colorize(:red)
         puts "\t#{e}".colorize(:red)
