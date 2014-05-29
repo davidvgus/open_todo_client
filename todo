@@ -18,7 +18,7 @@ class Todo < Thor
     path = "/api/users"
     request_text = "http://#{@auth_string}#{@url}#{path}"
     response_text = JSON.parse(attempt_action(:get,request_text))
-    puts response_text["users"].each {|u| puts u}
+    response_text["users"].each {|u| puts u}
   end
 
   desc "add_user", "Adds a user"
@@ -44,14 +44,66 @@ class Todo < Thor
     puts response_text
   end
 
-  desc "all_lists", "Displays all viewable lists lists"
-  def all_lists
+  desc "viewable_lists", "Displays all lists set to viewable"
+  def viewable_lists
     load_config
     path = "/api/lists"
     request_text = "http://#{@auth_string}#{@url}#{path}"
     response_text = JSON.parse(attempt_action(:get,request_text))
-    puts response_text["lists"].each {|u| puts u}
+    response_text["lists"].each {|u| puts u} unless response_text["lists"] == nil
   end
+
+  desc "open_lists", "Displays all personal lists"
+  def open_lists
+    load_config
+    path = "/api/users/#{@settings[:todo_user_id]}/lists"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = JSON.parse(attempt_action(:get,request_text))
+    puts response_text["lists"].each {|u| puts u} unless response_text["lists"] == nil
+  end
+
+  desc "delete_list", "Delete a list by its ID"
+  option :id, :type => :numeric, :required => true
+  def delete_list
+    load_config
+    path = "/api/lists"
+    request_text = "http://#{@auth_string}#{@url}#{path}/#{options[:id]}"
+    response_text = attempt_action(:delete, request_text)
+    puts response_text
+  end
+
+  desc "add_list", "Add a peronal list"
+  option :name, :type => :string, :required => true
+  option :permissions, :type => :string
+  def add_list
+    load_config
+    data = {"list" => {"name" => options[:name]}}.to_json
+    data["list"]["permissions"] = options[:permissions] if options["permissions"] != nil
+    header_options = {:content_type => :json, :accept => :json}
+    path = "/api/users/#{@settings[:todo_user_id]}/lists"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = attempt_action(:post, request_text, data, header_options)
+    puts response_text
+  end
+
+  desc "edit_list", "Sets new value for list with ID"
+  option :list_id, :type => :numeric, :required => true
+  option :name, :type => :string
+  option :permissions, :type => :string
+  def edit_list
+    load_config
+    data = {"list" => {}}
+    data["list"]["name"] = options[:name] if options["name"] != nil
+    data["list"]["permissions"] = options[:permissions] if options["permissions"] != nil
+
+    header_options = {:content_type => :json, :accept => :json}
+    path = "/api/users/#{@settings[:todo_user_id]}/lists/#{options[:list_id]}"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = attempt_action(:put, request_text, data.to_json, header_options)
+    puts response_text
+  end
+
+
 
   no_commands do
     def attempt_action(action_as_symbol, *resource)
@@ -82,7 +134,7 @@ class Todo < Thor
           abort ("\tcheck config file and try again".colorize(:red))
         end
       else
-        default_settings = {username: "username_here", password: "password_here", url: "url_here"}
+        default_settings = {todo_user_id: "user_id_here", username: "username_here", password: "password_here", url: "url_here"}
         File.open("settings.yml", "w") {|f| f.write(default_settings.to_yaml)}
         puts "please edit config file before running again"
       end
