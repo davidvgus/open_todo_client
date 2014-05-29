@@ -93,13 +93,47 @@ class Todo < Thor
   def edit_list
     load_config
     data = {"list" => {}}
-    data["list"]["name"] = options[:name] if options["name"] != nil
-    data["list"]["permissions"] = options[:permissions] if options["permissions"] != nil
+    data["list"]["name"] = options[:name] if options[:name] != nil
+    data["list"]["permissions"] = options[:permissions] if options[:permissions] != nil
 
     header_options = {:content_type => :json, :accept => :json}
     path = "/api/users/#{@settings[:todo_user_id]}/lists/#{options[:list_id]}"
     request_text = "http://#{@auth_string}#{@url}#{path}"
     response_text = attempt_action(:put, request_text, data.to_json, header_options)
+    puts response_text
+  end
+
+  desc "show_list", "Shows list based on list ID"
+  option :list_id, :type => :numeric, :required => true
+  def show_list
+    load_config
+    path = "/api/lists/#{options[:list_id]}"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = JSON.parse(attempt_action(:get,request_text))
+    response_text["lists"].each {|l| puts l}
+  end
+
+  desc "add_item", "Add item to list"
+  option :list_id, :type => :numeric, :required => true
+  option :desc, :type => :string, :required => true
+  def add_item
+    load_config
+    data = {"item" => {}}
+    data["item"]["description"] = options[:desc] if options[:desc] != nil
+    header_options = {:content_type => :json, :accept => :json}
+    path = "/api/lists/#{options[:list_id]}/items"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = attempt_action(:post, request_text, data.to_json, header_options)
+    puts response_text
+  end
+
+  desc "mark_complete", "Mark item complete"
+  option :item_id, :type => :numeric, :required => true
+  def mark_complete
+    load_config
+    path = "/api/items/#{options[:item_id]}"
+    request_text = "http://#{@auth_string}#{@url}#{path}"
+    response_text = attempt_action(:delete, request_text)
     puts response_text
   end
 
